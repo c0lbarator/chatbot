@@ -22,7 +22,7 @@ from appwrite.query import Query
 from operator import itemgetter
 from typing import Any
 #Подключаемся к бдшке
-client = (Client().set_endpoint('https://korglo.69.mu/v1').set_project('644bf71b1fd33de165c1').set_key('API_KEY_HERE'))
+client = (Client().set_endpoint('https://korglo.69.mu/v1').set_project('644bf71b1fd33de165c1').set_key('a6bf92e9132bfe0b157a212140cd4f286a357b2cf8b4158b947941402a74cdaa8b02e19bc9e54ccfc045877e1309dc8179daa95fc65bfe7398a2390019e1720f5d910bce6c1b7d9aed30f1489c46f21ebb8887f0d554987fb0f95faf9463f2e8ee040841074a2756580a1d44724486c0455a0d5e57285ee0b2ba67abb96f4575'))
 databases = Databases(client)
 dbid, cid = '644c2f1074ca81e7f813', '644c2f1d2011d5d35680'
 #Начало создания мероприятия
@@ -120,7 +120,7 @@ async def on_finish(callback: CallbackQuery, button: Button,
             '644c2f1d2011d5d35680',
             document_id=ID.unique(),
             data={
-                'userid':callback.message.from_user.id,
+                'userid':manager.event.from_user.id,
                 'name':manager.dialog_data.get("event_name", ""),
                 'p_longitude': manager.dialog_data.get("place", "")[0],
                 'p_latitude': manager.dialog_data.get('place', '')[1],
@@ -295,11 +295,6 @@ event_choose = Window(
             items='products',
             item_id_getter=lambda x:x['id'],
             on_click=on_fruit_selected,
-        ),
-        Button(
-            Const('Назад'),
-            on_click=Back(),
-            id='eeback'
         ),
         width=1,
         height=5,

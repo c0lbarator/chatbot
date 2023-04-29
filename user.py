@@ -168,7 +168,7 @@ event_window = Window(
 e_dialog = Dialog(event_choose, event_window)
 #https://en.wikipedia.org/wiki/Longitude#Length_of_a_degree_of_longitude
 
-client = (Client().set_endpoint('https://korglo.69.mu/v1').set_project('644bf71b1fd33de165c1').set_key('API_KEY_HERE'))
+client = (Client().set_endpoint('https://korglo.69.mu/v1').set_project('644bf71b1fd33de165c1').set_key('a6bf92e9132bfe0b157a212140cd4f286a357b2cf8b4158b947941402a74cdaa8b02e19bc9e54ccfc045877e1309dc8179daa95fc65bfe7398a2390019e1720f5d910bce6c1b7d9aed30f1489c46f21ebb8887f0d554987fb0f95faf9463f2e8ee040841074a2756580a1d44724486c0455a0d5e57285ee0b2ba67abb96f4575'))
 API_TOKEN = '1026624360:AAGAI3gKXOhwwC3gEoVdm9tIBFCVRPekJek'
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
