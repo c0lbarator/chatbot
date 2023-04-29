@@ -203,15 +203,36 @@ dialog = Dialog(event_creation_w, place_selection, date_selection,time_selection
 
 #Конец создания мероприятия
 #Начало редактирования мероприятия
-'''class event_creation(StatesGroup):
+class event_creation(StatesGroup):
     ch_event_choose = State()
     ch_editing = State()
     ch_saving = State()
-async def tbc():
-    databases.list_documents(dbid, cid, [Query.equal('userid', )])
+
+async def event_edit_ch(c: CallbackQuery, button: Button, manager: DialogManager):
+    did = button.widget_id
+    manager.dialog_data["did"] = did
+    await manager.next()
+async def tbc(manager: DialogManager):
+    userid = manager.event.from_user.id
+    buttons = []
+    a = databases.list_documents(dbid, cid, [Query.equal('userid', userid)])['documents']
+    for el in a:
+        buttons.append(Const(el['name']+','+datetime.fromisoformat(el['datetime']).isoformat(' ')), id=el['$id'], on_click=event_edit_ch)
 event_choose = Window(
-    Const('Все перемены к лучшему! Выбери необходимое мероприятие из списка')
-)'''
+    Const('Все перемены к лучшему! Выбери необходимое мероприятие из списка'),
+    ScrollinGroup(
+        tbc(),
+        width=1,
+        heightt=7
+    )
+)
+event_edit = Window(
+    Format('Ты выбрал мероприятие:{name}\nДата:{datetime}\nМесто:{place}\nПлатное:{paid}\nСсылка на оплату:{paylink}\nОграничения по возрасту:\nЧто ты хочешь изменить в карточке мероприятия?'),
+    Row(
+        Button(Const('Дату и время'), on_click=datetime_ch),
+        Button(Const('Место'), on_click=place_ch)
+    )
+)
 
 
 API_TOKEN = '1037774621:AAH41GlT7PvLff40QF1f6CzY0_IjY7bot6M'
