@@ -3,7 +3,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery, ContentType
 from aiogram_dialog import Window, Dialog, DialogManager, StartMode, setup_dialogs
-from aiogram_dialog.widgets.kbd import Button, Row, Back, SwitchTo
+from aiogram_dialog.widgets.kbd import Button, Row, Back, SwitchTo, Select
 from aiogram_dialog.widgets.text import Const, Format
 from aiogram_dialog.widgets.input import MessageInput
 from datetime import date
@@ -18,7 +18,9 @@ from appwrite.client import Client
 from appwrite.services.databases import Databases
 from appwrite.id import ID
 from aiogram_dialog.widgets.kbd import Button, ScrollingGroup
-from appwrite import Query
+from appwrite.query import Query
+from operator import itemgetter
+from typing import Any
 #Подключаемся к бдшке
 client = (Client().set_endpoint('https://korglo.69.mu/v1').set_project('644bf71b1fd33de165c1').set_key('a6bf92e9132bfe0b157a212140cd4f286a357b2cf8b4158b947941402a74cdaa8b02e19bc9e54ccfc045877e1309dc8179daa95fc65bfe7398a2390019e1720f5d910bce6c1b7d9aed30f1489c46f21ebb8887f0d554987fb0f95faf9463f2e8ee040841074a2756580a1d44724486c0455a0d5e57285ee0b2ba67abb96f4575'))
 databases = Databases(client)
@@ -101,7 +103,7 @@ async def on_finish(callback: CallbackQuery, button: Button,
             '644c2f1d2011d5d35680',
             document_id=ID.unique(),
             data={
-                'userid':callback.message.from_user.id,
+                'userid':manager.event.from_user.id,
                 'name':manager.dialog_data.get("event_name", ""),
                 'place': manager.dialog_data.get("place", ""),
                 'datetime': str(datetime.fromisoformat(str(manager.dialog_data.get("date", ""))+' '+str(manager.dialog_data.get("time", ""))).isoformat()),
@@ -159,7 +161,7 @@ date_selection = Window(
     state=event_creation.ch_date
 )
 time_selection = Window(
-    Const('Окей, а теперь поточнее! Во сколько будет проходить мероприятие?'),
+    Const('Окей, а теперь поточнее! Во сколько будет проходить мероприятие? Укажи время в формате ЧЧ:ММ'),
     MessageInput(time_handler),
     state=event_creation.ch_time
 )
@@ -180,7 +182,7 @@ is_paid = Window(
     state=event_creation.ch_is_paid
 )
 paylink = Window(
-    Const('Окей! Теперь отправь ссылку на оплату'),
+    Const('Окей! Теперь отправь ссылку на оплату. Например, https://example.com'),
     MessageInput(paylink_handler),
     state=event_creation.ch_paylink
 )
@@ -199,54 +201,142 @@ allin = Window(
     state=event_creation.ch_finish,
     getter=get_data,)
 
-dialog = Dialog(event_creation_w, place_selection, date_selection,time_selection, is_paid, paylink, age_limit, allin)
+dialog_create = Dialog(event_creation_w, place_selection, date_selection,time_selection, is_paid, paylink, age_limit, allin)
 
 #Конец создания мероприятия
 #Начало редактирования мероприятия
-class event_creation(StatesGroup):
+class event_editing(StatesGroup):
     ch_event_choose = State()
     ch_editing = State()
     ch_saving = State()
+    ch_edit_date = State()
+    ch_edit_time = State()
+    ch_edit_place = State()
 
 async def event_edit_ch(c: CallbackQuery, button: Button, manager: DialogManager):
     did = button.widget_id
     manager.dialog_data["did"] = did
     await manager.next()
-async def tbc(manager: DialogManager):
-    userid = manager.event.from_user.id
-    buttons = []
+async def tbc_getter(dialog_manager: DialogManager,**_kwargs):
+    userid = dialog_manager.event.from_user.id
     a = databases.list_documents(dbid, cid, [Query.equal('userid', userid)])['documents']
+    names = []
+    ids = []
     for el in a:
-        buttons.append(Const(el['name']+','+datetime.fromisoformat(el['datetime']).isoformat(' ')), id=el['$id'], on_click=event_edit_ch)
+        tmp = {}
+        tmp['name'] = el['name']
+        tmp['id'] = el['$id']
+        names.append(tmp)
+        #ids.append(el['$id'])
+    #dialog_manager.dialog_data["ids"] = ids
+    return {
+        'products':names,
+    }
+
+
+
 async def datetime_ch(c: CallbackQuery, button: Button, manager: DialogManager):
-    did = button.widget_id
-    manager.dialog_data["did"] = did
-    await manager.next()
+    await manager.switch_to(event_editing.ch_edit_date)
+async def ch_date_selected(c: CallbackQuery, widget, manager: DialogManager, selected_date: date):
+    if manager.is_preview():
+        await manager.next()
+        return
+    manager.dialog_data["newdate"] = selected_date
+    await manager.switch_to(event_editing.ch_edit_time)
+async def chtime(message: Message, message_input: MessageInput,
+                             manager: DialogManager):
+    if manager.is_preview():
+        await manager.next()
+        return
+    did = manager.dialog_data.get('did', '')
+    result = databases.update_document(dbid, cid, did, {'datetime':str(datetime.fromisoformat(str(manager.dialog_data.get("newdate", ""))+' '+message.text).isoformat())})
+    manager.dialog_data["newtime"] = message.text
+    await manager.switch_to(event_editing.ch_editing)
 async def place_ch(c: CallbackQuery, button: Button, manager: DialogManager):
-    did = button.widget_id
-    manager.dialog_data["did"] = did
+    await manager.switch_to(event_editing.ch_edit_place)
+async def chplace(message: Message, message_input: MessageInput,
+                             manager: DialogManager):
+    if manager.is_preview():
+        await manager.next()
+        return
+    did = manager.dialog_data.get('did', '')
+    result = databases.update_document(dbid, cid, did, {'place':[message.location.longitude, message.location.latitude]})
+    manager.dialog_data["newtime"] = message.text
+    await manager.switch_to(event_editing.ch_editing)
+async def deledvent(c: CallbackQuery, button: Button, manager: DialogManager):
+    did = manager.dialog_data.get('did', '')
+    result = databases.delete_document(dbid, cid, did)
+async def get_data(dialog_manager: DialogManager,**_kwargs):
+    did = dialog_manager.dialog_data.get("did", "")
+    doc = databases.get_document(dbid, cid, did)
+    return {
+        'name': doc['name'],
+        'datetime': doc['datetime'],
+        'place': doc['place'],
+        'paid': doc['paid'],
+        'paylink': doc['paylink'],
+        'age_limit': doc['age_limit']
+    }
+
+async def on_fruit_selected(callback: CallbackQuery, widget: Any,
+                            manager: DialogManager, item_id: str):
+    manager.dialog_data['did'] = item_id
     await manager.next()
+
 event_choose = Window(
     Const('Все перемены к лучшему! Выбери необходимое мероприятие из списка'),
-    ScrollinGroup(
-        tbc(),
+    ScrollingGroup(
+        Select(
+            Format("{item[name]}"),
+            id='s_events',
+            items='products',
+            item_id_getter=lambda x:x['id'],
+            on_click=on_fruit_selected,
+        ),
+        Button(
+            Const('Назад'),
+            on_click=Back(),
+            id='eeback'
+        ),
         width=1,
-        heightt=7
-    )
+        height=5,
+        id='scroll_with_pager'
+    ),
+    getter=tbc_getter,
+    state=event_editing.ch_event_choose
 )
 event_edit = Window(
-    Format('Ты выбрал мероприятие:{name}\nДата:{datetime}\nМесто:{place}\nПлатное:{paid}\nСсылка на оплату:{paylink}\nОграничения по возрасту:\nЧто ты хочешь изменить в карточке мероприятия?'),
+    Format('Ты выбрал мероприятие:{name}\nДата:{datetime}\nМесто:{place}\nПлатное:{paid}\nСсылка на оплату:{paylink}\nОграничения по возрасту:{age_limit}\nЧто ты хочешь изменить в карточке мероприятия?'),
     Row(
-        Button(Const('Дату и время'), on_click=datetime_ch),
-        Button(Const('Место'), on_click=place_ch),
-    )
+        Button(Const('Дату и время'), id='chdatetime', on_click=datetime_ch),
+        Button(Const('Место'), id='chplace', on_click=place_ch),
+        Button(Cons('Удалить мероприятие', id='deledvent', on_click=deledvent))
+    ),
+    state=event_editing.ch_editing,
+    getter=get_data
 )
-
-
-API_TOKEN = '1037774621:AAH41GlT7PvLff40QF1f6CzY0_IjY7bot6M'
+eedit_date = Window(
+    Format('Выбери новую дату'),
+    Calendar(id='calendar_editing', on_click=ch_date_selected),
+    state=event_editing.ch_edit_date
+)
+eedit_time = Window(
+    Format('Выбери новое время, так же в формате ЧЧ:ММ'),
+    MessageInput(chtime),
+    state=event_editing.ch_edit_time
+)
+eedit_place = Window(
+    Format('Отправь новую геопозицию'),
+    MessageInput(chplace),
+    state=event_editing.ch_edit_place
+)
+dialog_edit = Dialog(event_choose, event_edit, eedit_date, eedit_time, eedit_place)
+#Конец редактирования мероприятия
+API_TOKEN = '1026624360:AAGAI3gKXOhwwC3gEoVdm9tIBFCVRPekJek'
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
-dp.include_router(dialog)
+dp.include_router(dialog_create)
+dp.include_router(dialog_edit)
 setup_dialogs(dp)
 
 @dp.message(Command('start'))
@@ -254,7 +344,7 @@ async def send_welcome(message: types.Message):
     builder = InlineKeyboardBuilder()
     builder.add(types.InlineKeyboardButton(
         text="Создать мероприятие",
-        callback_data="create_event")
+        callback_data="create_event", )
     )
     builder.add(types.InlineKeyboardButton(
         text='Редактировать мероприятие',
@@ -267,6 +357,6 @@ async def cc(callback: types.CallbackQuery, dialog_manager: DialogManager):
      await dialog_manager.start(event_creation.ch_event_name, mode=StartMode.RESET_STACK)
 @dp.callback_query(Text("edit_event"))
 async def ec(callback: types.CallbackQuery, dialog_manager: DialogManager):
-     await dialog_manager.start(event_creation.ch_event_name, mode=StartMode.RESET_STACK)
+     await dialog_manager.start(event_editing.ch_event_choose, mode=StartMode.RESET_STACK)
 if __name__ == '__main__':
     dp.run_polling(bot, skip_updates=True)
