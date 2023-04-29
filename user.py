@@ -23,6 +23,11 @@ from operator import itemgetter
 from typing import Any
 import math
 from numpy import deg2rad
+import aioschedule
+from aiogram.types import BufferedInputFile
+from icalendar import Calendar as Callend
+from icalendar import Event
+import pytz
 async def compute_Delta(degrees):
     return math.pi / 180.0 * 6371210 * math.cos(deg2rad(degrees))
 
@@ -136,8 +141,27 @@ async def get_data(dialog_manager: DialogManager,**_kwargs):
         'paylink': doc['paylink'],
         'age_limit': doc['age_limit']
     }
+async def add_booking(c: CallbackQuery, button: Button, manager: DialogManager):
+    did = manager.dialog_data.get("did", "")
+    document = databases.get_document(dbid, cid, did)
+    doc = databases.get_document(dbid, cid, did)
+    #doc.append(dialog_manager.event.from_user.id)
+    #response = databases.update_document(dbid, cid, did, {'bookings':doc})
+    cal = Callend()
+    cal.add('dtstart', datetime.fromisoformat(document['datetime']))
+    cal.add('prodid', '-//Kuda<->Tula notifier//')
+    cal.add('version', '1.0')
+    event = Event()
+    event.add('summary', document['name'])
+    event.add('dtstart', datetime.fromisoformat(document['datetime']).replace(tzinfo=pytz.timezone('Europe/Moscow')))
+    event.add('dtend', datetime.fromisoformat(document['datetime']).replace(tzinfo=pytz.timezone('Europe/Moscow')))
+    event.add('dtstamp', datetime.fromisoformat(document['datetime']).replace(tzinfo=pytz.timezone('Europe/Moscow')))
+    cal.add_component(event)
+    text_file = BufferedInputFile(cal.to_ical(), filename="file.ics")
+    await c.message.answer_document(text_file)
 event_window = Window(
-    Format('Ты выбрал мероприятие:{name}\nДата:{datetime}\nМесто:{place}\nПлатное:{paid}\nСсылка на оплату:{paylink}\nОграничения по возрасту:{age_limit}\n'),
+    Format('Ты выбрал мероприятие:{name}\nДата:{datetime}\nМесто:{place}\nПлатное:{paid}\nСсылка на оплату:{paylink}\nОграничения по возрасту:{age_limit}\nМожешь записаться, тогда бот пришлёт тебе файл, который ты сможешь добавить в свой календарь'),
+    Button(Const('Записаться'), on_click=add_booking, id='booking'),
     state=eventlist.ch_event,
     getter=get_data
 )
