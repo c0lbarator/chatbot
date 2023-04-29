@@ -106,7 +106,7 @@ async def on_finish(callback: CallbackQuery, button: Button,
                 'userid':manager.event.from_user.id,
                 'name':manager.dialog_data.get("event_name", ""),
                 'p_longitude': manager.dialog_data.get("place", "")[0],
-                'p_latitude': manager.dialog_data.get('place', '')[0],
+                'p_latitude': manager.dialog_data.get('place', '')[1],
                 'datetime': str(datetime.fromisoformat(str(manager.dialog_data.get("date", ""))+' '+str(manager.dialog_data.get("time", ""))).isoformat()),
                 'paid': manager.dialog_data.get("paid", ""),
                 'age_limit':manager.dialog_data.get("age_limit", "")
@@ -122,7 +122,8 @@ async def on_finish(callback: CallbackQuery, button: Button,
             data={
                 'userid':callback.message.from_user.id,
                 'name':manager.dialog_data.get("event_name", ""),
-                'place': manager.dialog_data.get("place", ""),
+                'p_longitude': manager.dialog_data.get("place", "")[0],
+                'p_latitude': manager.dialog_data.get('place', '')[1],
                 'datetime': str(datetime.fromisoformat(str(manager.dialog_data.get("date", ""))+' '+str(manager.dialog_data.get("time", ""))).isoformat()),
                 'paid': manager.dialog_data.get("paid", ""),
                 'paylink':manager.dialog_data.get("paylink", ""),
@@ -196,8 +197,8 @@ allin = Window(
     Format("Готово! Проверим информацию:\nМерприятие: {event_name}\nДата: {date}\nВремя: {time}\nПлатное: {paid}\nСсылка на оплату: {paylink}\nОграничения по возрасту: {age_limit}\nКоординаты: {place}"),
     Row(
             Back(),
-            SwitchTo(Const("Restart"), id="restart", state=event_creation.ch_event_name),
-            Button(Const("Finish"), on_click=on_finish, id="finish"),
+            SwitchTo(Const("Заполнить сначала"), id="restart", state=event_creation.ch_event_name),
+            Button(Const("Отправить"), on_click=on_finish, id="finish"),
         ),
     state=event_creation.ch_finish,
     getter=get_data,)
@@ -333,7 +334,7 @@ eedit_place = Window(
 )
 dialog_edit = Dialog(event_choose, event_edit, eedit_date, eedit_time, eedit_place)
 #Конец редактирования мероприятия
-API_TOKEN = '1026624360:AAGAI3gKXOhwwC3gEoVdm9tIBFCVRPekJek'
+API_TOKEN = '1037774621:AAH41GlT7PvLff40QF1f6CzY0_IjY7bot6M'
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 dp.include_router(dialog_create)

@@ -1,0 +1,1 @@
+('p_latitude', kritery[3]), Query.greater_than('
