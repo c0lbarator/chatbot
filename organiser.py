@@ -218,6 +218,14 @@ async def tbc(manager: DialogManager):
     a = databases.list_documents(dbid, cid, [Query.equal('userid', userid)])['documents']
     for el in a:
         buttons.append(Const(el['name']+','+datetime.fromisoformat(el['datetime']).isoformat(' ')), id=el['$id'], on_click=event_edit_ch)
+async def datetime_ch(c: CallbackQuery, button: Button, manager: DialogManager):
+    did = button.widget_id
+    manager.dialog_data["did"] = did
+    await manager.next()
+async def place_ch(c: CallbackQuery, button: Button, manager: DialogManager):
+    did = button.widget_id
+    manager.dialog_data["did"] = did
+    await manager.next()
 event_choose = Window(
     Const('Все перемены к лучшему! Выбери необходимое мероприятие из списка'),
     ScrollinGroup(
@@ -230,7 +238,7 @@ event_edit = Window(
     Format('Ты выбрал мероприятие:{name}\nДата:{datetime}\nМесто:{place}\nПлатное:{paid}\nСсылка на оплату:{paylink}\nОграничения по возрасту:\nЧто ты хочешь изменить в карточке мероприятия?'),
     Row(
         Button(Const('Дату и время'), on_click=datetime_ch),
-        Button(Const('Место'), on_click=place_ch)
+        Button(Const('Место'), on_click=place_ch),
     )
 )
 
