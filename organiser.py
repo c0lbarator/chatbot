@@ -22,9 +22,9 @@ from appwrite.query import Query
 from operator import itemgetter
 from typing import Any
 #Подключаемся к бдшке
-client = (Client().set_endpoint('https://korglo.69.mu/v1').set_project('644bf71b1fd33de165c1').set_key('a6bf92e9132bfe0b157a212140cd4f286a357b2cf8b4158b947941402a74cdaa8b02e19bc9e54ccfc045877e1309dc8179daa95fc65bfe7398a2390019e1720f5d910bce6c1b7d9aed30f1489c46f21ebb8887f0d554987fb0f95faf9463f2e8ee040841074a2756580a1d44724486c0455a0d5e57285ee0b2ba67abb96f4575'))
+client = (Client().set_endpoint('https://korglo.69.mu/v1').set_project('').set_key(''))
 databases = Databases(client)
-dbid, cid = '644c2f1074ca81e7f813', '644c2f1d2011d5d35680'
+dbid, cid = '', ''
 #Начало создания мероприятия
 class event_creation(StatesGroup):
     ch_event_name = State()
@@ -321,6 +321,7 @@ eedit_date = Window(
     Calendar(id='calendar_editing', on_click=ch_date_selected),
     state=event_editing.ch_edit_date
 )
+<<<<<<< HEAD
 eedit_time = Window(
     Format('Выбери новое время, так же в формате ЧЧ:ММ'),
     MessageInput(chtime),
@@ -334,6 +335,11 @@ eedit_place = Window(
 dialog_edit = Dialog(event_choose, event_edit, eedit_date, eedit_time, eedit_place)
 #Конец редактирования мероприятия
 API_TOKEN = '1026624360:AAGAI3gKXOhwwC3gEoVdm9tIBFCVRPekJek'
+=======
+
+
+API_TOKEN = ''
+>>>>>>> eaa9d6988d6a8917077091cb16203a12fb50383b
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 dp.include_router(dialog_create)
