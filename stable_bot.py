@@ -251,7 +251,13 @@ async def chtime(message: Message, message_input: MessageInput,
         await manager.next()
         return
     did = manager.dialog_data.get('did', '')
+    cid = '644c2f1d2011d5d35680'
     result = databases.update_document(dbid, cid, did, {'datetime':str(datetime.fromisoformat(str(manager.dialog_data.get("newdate", ""))+' '+message.text).isoformat())})
+    print(did)
+    did = databases.get_document(dbid, cid, str(did))
+    bookings = did['bookings']
+    for userid in bookings:
+        bot.send_message(chat_id=userid, text=f'В мероприятии {did["name"]} изменилось время проведения!\n Новое время: {manager.dialog_data.get("newdate", "")} {message.text}\n Для добавления нового оповещения нажми кнопку записаться ещё раз')
     manager.dialog_data["newtime"] = message.text
     await manager.switch_to(event_editing.ch_editing)
 async def place_ch(c: CallbackQuery, button: Button, manager: DialogManager):
@@ -262,8 +268,13 @@ async def chplace(message: Message, message_input: MessageInput,
         await manager.next()
         return
     did = manager.dialog_data.get('did', '')
+    print(did)
+    cid = '644c2f1d2011d5d35680'
+    did = databases.get_document(dbid, cid, str(did))
+    bookings = did['bookings']
     result = databases.update_document(dbid, cid, did, {'p_longitude':message.location.longitude, 'p_latitude':message.location.latitude})
-    manager.dialog_data["newtime"] = message.text
+    for userid in bookings:
+        bot.send_message(chat_id=userid, text=f'В мероприятии {did["name"]} изменилось место проведения!\n Новое место: {message.location.longitude} {message.location.latitude}\n')
     await manager.switch_to(event_editing.ch_editing)
 async def deledvent(c: CallbackQuery, button: Button, manager: DialogManager):
     did = manager.dialog_data.get('did', '')

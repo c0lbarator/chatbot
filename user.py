@@ -144,9 +144,9 @@ async def get_data(dialog_manager: DialogManager,**_kwargs):
 async def add_booking(c: CallbackQuery, button: Button, manager: DialogManager):
     did = manager.dialog_data.get("did", "")
     document = databases.get_document(dbid, cid, did)
-    doc = databases.get_document(dbid, cid, did)
-    #doc.append(dialog_manager.event.from_user.id)
-    #response = databases.update_document(dbid, cid, did, {'bookings':doc})
+    doc = databases.get_document(dbid, cid, did)['bookings']
+    doc.append(manager.event.from_user.id)
+    response = databases.update_document(dbid, cid, did, {'bookings':doc})
     cal = Callend()
     cal.add('dtstart', datetime.fromisoformat(document['datetime']))
     cal.add('prodid', '-//Kuda<->Tula notifier//')
