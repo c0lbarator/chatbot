@@ -21,6 +21,7 @@ from aiogram_dialog.widgets.kbd import Button, ScrollingGroup
 from appwrite.query import Query
 from operator import itemgetter
 from typing import Any
+from user import sender
 #Подключаемся к бдшке
 client = (Client().set_endpoint('https://korglo.69.mu/v1').set_project('').set_key(''))
 databases = Databases(client)

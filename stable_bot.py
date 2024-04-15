@@ -22,7 +22,7 @@ from appwrite.query import Query
 from operator import itemgetter
 from typing import Any
 #Подключаемся к бдшке
-client = (Client().set_endpoint('https://korglo.69.mu/v1').set_project('644bf71b1fd33de165c1').set_key('a6bf92e9132bfe0b157a212140cd4f286a357b2cf8b4158b947941402a74cdaa8b02e19bc9e54ccfc045877e1309dc8179daa95fc65bfe7398a2390019e1720f5d910bce6c1b7d9aed30f1489c46f21ebb8887f0d554987fb0f95faf9463f2e8ee040841074a2756580a1d44724486c0455a0d5e57285ee0b2ba67abb96f4575'))
+client = (Client().set_endpoint('https://localhost/v1').set_project('644bf71b1fd33de165c1').set_key('fedd80794ac0c6c7ee557b6d8d272049ac69a7c4e530251411d5df53f4d97370ebf03340077072741e879f82b4a27d0a9e1b4acb8cf214d5e221a28ca4aefaaa163d430a859b75c759aae07076d3a5075b9b1d5f2f1328bf90578cbd3ac5f31948f1746922f034b52532175e3315cb94c16c8580b9213a26c57ccbc814eacb15'))
 databases = Databases(client)
 dbid, cid = '644c2f1074ca81e7f813', '644c2f1d2011d5d35680'
 #Начало создания мероприятия
@@ -254,10 +254,9 @@ async def chtime(message: Message, message_input: MessageInput,
     cid = '644c2f1d2011d5d35680'
     result = databases.update_document(dbid, cid, did, {'datetime':str(datetime.fromisoformat(str(manager.dialog_data.get("newdate", ""))+' '+message.text).isoformat())})
     print(did)
-    did = databases.get_document(dbid, cid, str(did))
-    bookings = did['bookings']
+    bookings = databases.get_document(dbid, cid, str(did))['bookings']
     for userid in bookings:
-        bot.send_message(chat_id=userid, text=f'В мероприятии {did["name"]} изменилось время проведения!\n Новое время: {manager.dialog_data.get("newdate", "")} {message.text}\n Для добавления нового оповещения нажми кнопку записаться ещё раз')
+        await bot.send_message(chat_id=userid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось время проведения!\n Новое время: {manager.dialog_data.get("newdate", "")} {message.text}\n Для добавления нового оповещения нажми кнопку записаться ещё раз')
     manager.dialog_data["newtime"] = message.text
     await manager.switch_to(event_editing.ch_editing)
 async def place_ch(c: CallbackQuery, button: Button, manager: DialogManager):
@@ -270,11 +269,10 @@ async def chplace(message: Message, message_input: MessageInput,
     did = manager.dialog_data.get('did', '')
     print(did)
     cid = '644c2f1d2011d5d35680'
-    did = databases.get_document(dbid, cid, str(did))
-    bookings = did['bookings']
+    bookings = databases.get_document(dbid, cid, str(did))['bookings']
     result = databases.update_document(dbid, cid, did, {'p_longitude':message.location.longitude, 'p_latitude':message.location.latitude})
     for userid in bookings:
-        bot.send_message(chat_id=userid, text=f'В мероприятии {did["name"]} изменилось место проведения!\n Новое место: {message.location.longitude} {message.location.latitude}\n')
+        await bot.send_message(chat_id=userid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось место проведения!\n Новое место: {message.location.longitude} {message.location.latitude}\n')
     await manager.switch_to(event_editing.ch_editing)
 async def deledvent(c: CallbackQuery, button: Button, manager: DialogManager):
     did = manager.dialog_data.get('did', '')

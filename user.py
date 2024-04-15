@@ -145,7 +145,7 @@ async def add_booking(c: CallbackQuery, button: Button, manager: DialogManager):
     did = manager.dialog_data.get("did", "")
     document = databases.get_document(dbid, cid, did)
     doc = databases.get_document(dbid, cid, did)['bookings']
-    doc.append(manager.event.from_user.id)
+    doc.append(manager.event.from_user.chat_id)
     response = databases.update_document(dbid, cid, did, {'bookings':doc})
     cal = Callend()
     cal.add('dtstart', datetime.fromisoformat(document['datetime']))
@@ -168,7 +168,7 @@ event_window = Window(
 e_dialog = Dialog(event_choose, event_window)
 #https://en.wikipedia.org/wiki/Longitude#Length_of_a_degree_of_longitude
 
-client = (Client().set_endpoint('https://korglo.69.mu/v1').set_project('644bf71b1fd33de165c1').set_key('a6bf92e9132bfe0b157a212140cd4f286a357b2cf8b4158b947941402a74cdaa8b02e19bc9e54ccfc045877e1309dc8179daa95fc65bfe7398a2390019e1720f5d910bce6c1b7d9aed30f1489c46f21ebb8887f0d554987fb0f95faf9463f2e8ee040841074a2756580a1d44724486c0455a0d5e57285ee0b2ba67abb96f4575'))
+client = (Client().set_endpoint('https://localhost/v1').set_project('644bf71b1fd33de165c1').set_key('fedd80794ac0c6c7ee557b6d8d272049ac69a7c4e530251411d5df53f4d97370ebf03340077072741e879f82b4a27d0a9e1b4acb8cf214d5e221a28ca4aefaaa163d430a859b75c759aae07076d3a5075b9b1d5f2f1328bf90578cbd3ac5f31948f1746922f034b52532175e3315cb94c16c8580b9213a26c57ccbc814eacb15'))
 API_TOKEN = '1026624360:AAGAI3gKXOhwwC3gEoVdm9tIBFCVRPekJek'
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
@@ -197,6 +197,7 @@ async def send_welcome(message: types.Message):
                 document_id=ID.unique(),
                 data={
                     'userid':message.from_user.id,
+                    'chatid':message.chat_id
                 }
         )
     await message.reply("Привет!\nТы открыл официального бота Тула Куда пойти!\nЗдесь ты найдёшь интересные мероприятия города\n", reply_markup=builder.as_markup())
