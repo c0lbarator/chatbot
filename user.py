@@ -23,13 +23,13 @@ from operator import itemgetter
 from typing import Any
 import math
 from numpy import deg2rad
-import aioschedule
 from aiogram.types import BufferedInputFile
 from icalendar import Calendar as Callend
-from icalendar import Event
+from icalendar import Event, vText
 import pytz
 import os
 from dotenv import load_dotenv
+from aiogram_dialog.widgets.text import Jinja
 load_dotenv()
 async def notifyChanges(chatid, text):
     bot.send_message(chat_id=chatid, text=text)
@@ -140,7 +140,9 @@ async def get_data(dialog_manager: DialogManager,**_kwargs):
     return {
         'name': doc['name'],
         'datetime': doc['datetime'],
-        'place': [doc['p_longitude'], doc['p_latitude']],
+        'place': [doc['p_latitude'],doc['p_longitude']],
+        'venue': doc['venue'],
+        'description': doc['description']
     }
 async def add_booking(c: CallbackQuery, button: Button, manager: DialogManager):
     did = manager.dialog_data.get("did", "")
@@ -151,21 +153,30 @@ async def add_booking(c: CallbackQuery, button: Button, manager: DialogManager):
     response = databases.update_document(dbid, cid, did, {'grokers':doc})
     cal = Callend()
     cal.add('dtstart', datetime.fromisoformat(document['datetime']))
-    cal.add('prodid', '-//Kuda<->Tula notifier//')
+    cal.add('prodid', '-//Kuda<->Tuda notifier//')
     cal.add('version', '1.0')
     event = Event()
     event.add('summary', document['name'])
     event.add('dtstart', datetime.fromisoformat(document['datetime']).replace(tzinfo=pytz.timezone('Europe/Moscow')))
     event.add('dtend', datetime.fromisoformat(document['datetime']).replace(tzinfo=pytz.timezone('Europe/Moscow')))
     event.add('dtstamp', datetime.fromisoformat(document['datetime']).replace(tzinfo=pytz.timezone('Europe/Moscow')))
+    event.add('description', document['description'])
+    event['location'] = vText(document['venue'])
     cal.add_component(event)
-    text_file = BufferedInputFile(cal.to_ical(), filename="goгрокать_без_опозданий.ics")
+    text_file = BufferedInputFile(cal.to_ical(), filename=f"{document['name']}.ics")
     await c.message.answer_document(text_file)
+txt = Jinja("""
+Ты выбрал мероприятие:<b>{{name}}</b>
+Дата и время:<b>{{datetime}}</b>
+Описание: {{description}}
+<a href="https://c0lbarator.github.io/location.html?text=geo:{{place[0]}},{{place[1]}}">Место:{{venue}}</a>
+""")
 event_window = Window(
-    Format('Ты выбрал мероприятие:{name}\nДата:{datetime}\nМесто:{place}\n'),
+    txt,
     Button(Const('Записаться'), on_click=add_booking, id='booking'),
     state=eventlist.ch_event,
-    getter=get_data
+    getter=get_data,
+    parse_mode="HTML"
 )
 e_dialog = Dialog(event_choose, event_window)
 #https://en.wikipedia.org/wiki/Longitude#Length_of_a_degree_of_longitude

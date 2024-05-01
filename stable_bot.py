@@ -22,11 +22,19 @@ from aiogram_dialog.widgets.kbd import Button, ScrollingGroup
 from appwrite.query import Query
 from operator import itemgetter
 from typing import Any
-from user import notifyChanges
 import os
 from dotenv import load_dotenv
+from icalendar import Calendar as Callend
+from icalendar import Event
+import pytz
+from aiogram.types import BufferedInputFile
+from aiogram.methods.send_document import SendDocument
+from aiogram.methods.send_message import SendMessage
+from geopy.geocoders import Nominatim
+import time
 load_dotenv()
-
+#Nominatim приложение
+app = Nominatim(user_agent="where<->here")
 #Подключаемся к бдшке
 client = (Client().set_endpoint('http://localhost/v1').set_project('661d778d002d0d91cacd').set_key('27b19c1cfff08c7f232ef7776f38e5d89c8647a88ef7a77da41952f8babb3f62b20d98ebeefb22e07db7d90b09fcb2b87ee72803065ff6afe7f0e0be687b14f62308538aa720e3de9ad6432a5365efaea33f05cafde1c072fe901c050c2b95a2e6807eb6c2189f6ad05ffbdb49671f97ae3190023ff4a94e02f084f585f322c3'))
 databases = Databases(client)
@@ -40,6 +48,7 @@ class event_creation(StatesGroup):
     ch_is_paid = State()
     ch_paylink = State()
     ch_age_limit = State()
+    ch_description = State()
     ch_finish = State()
 
 async def get_data(dialog_manager: DialogManager, **kwargs):
@@ -87,12 +96,18 @@ async def on_date_selected(c: CallbackQuery, widget, manager: DialogManager, sel
         return
     manager.dialog_data["date"] = selected_date
     await manager.next()
+async def description_handler(message: Message, message_input: MessageInput, manager: DialogManager):
+    if manager.is_preview():
+        await manager.next()
+    manager.dialog_data["description"] = message.text
+    await manager.next()
 async def on_finish(callback: CallbackQuery, button: Button,
                     manager: DialogManager):
     if manager.is_preview():
         await manager.done()
         return
     print(manager.dialog_data.get("place", ""))
+    #print("OOOOO", get_address(manager.dialog_data.get('place', '')[1],manager.dialog_data.get("place", "")[0]))
     response = databases.create_document(
         dbid,
         cid,
@@ -103,6 +118,8 @@ async def on_finish(callback: CallbackQuery, button: Button,
             'p_longitude': manager.dialog_data.get("place", "")[0],
             'p_latitude': manager.dialog_data.get('place', '')[1],
             'datetime': str(datetime.fromisoformat(str(manager.dialog_data.get("date", ""))+' '+str(manager.dialog_data.get("time", ""))).isoformat()),
+            'venue': app.reverse(f"{manager.dialog_data.get('place', '')[1]}, {manager.dialog_data.get("place", "")[0]}", language="ru").raw['display_name'],
+            'description': manager.dialog_data.get("description", "")
         }
     )
     print(response)
@@ -128,8 +145,13 @@ time_selection = Window(
     MessageInput(time_handler),
     state=event_creation.ch_time
 )
+description_selection = Window(
+    Const("Такс, а теперь раскажи о мероприятии подробнее. Отправь описание и контакты"),
+    MessageInput(description_handler),
+    state=event_creation.ch_description
+)
 allin = Window(
-    Format("Готово! Проверим информацию:\nМерприятие: {event_name}\nДата: {date}\nВремя: {time}\n Координаты: {place}"),
+    Format("Готово! Проверим информацию:\nМерприятие: {event_name}\nДата: {date}\nВремя: {time}\n Место: {place}"),
     Row(
             Back(),
             SwitchTo(Const("Заполнить сначала"), id="restart", state=event_creation.ch_event_name),
@@ -138,7 +160,7 @@ allin = Window(
     state=event_creation.ch_finish,
     getter=get_data,)
 
-dialog_create = Dialog(event_creation_w, place_selection, date_selection,time_selection, allin)
+dialog_create = Dialog(event_creation_w, place_selection, date_selection,time_selection,description_selection, allin)
 
 #Конец создания мероприятия
 #Начало редактирования мероприятия
@@ -189,8 +211,20 @@ async def chtime(message: Message, message_input: MessageInput,
     result = databases.update_document(dbid, cid, did, {'datetime':str(datetime.fromisoformat(str(manager.dialog_data.get("newdate", ""))+' '+message.text).isoformat())})
     print(did)
     bookings = databases.get_document(dbid, cid, str(did))['grokers']
-    for grokerid in bookings:
-        await Bot(token=os.getenv("USER_TOKEN")).send_message(chat_id=grokerid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось время проведения!\n Новое время: {manager.dialog_data.get("newdate", "")} {message.text}\n Для добавления нового оповещения нажми кнопку записаться ещё раз')
+    for grokerid in set(bookings):
+        cal = Callend()
+        cal.add('dtstart', datetime.fromisoformat(str(datetime.fromisoformat(str(manager.dialog_data.get("newdate", ""))+' '+message.text).isoformat())))
+        cal.add('prodid', '-//Kuda<->Tuda notifier//')
+        cal.add('version', '1.0')
+        event = Event()
+        event.add('summary', databases.get_document(dbid, cid, str(did))["name"])
+        event.add('dtstart', datetime.fromisoformat(str(datetime.fromisoformat(str(manager.dialog_data.get("newdate", ""))+' '+message.text).isoformat())).replace(tzinfo=pytz.timezone('Europe/Moscow')))
+        event.add('dtend', datetime.fromisoformat(str(datetime.fromisoformat(str(manager.dialog_data.get("newdate", ""))+' '+message.text).isoformat())).replace(tzinfo=pytz.timezone('Europe/Moscow')))
+        event.add('dtstamp', datetime.fromisoformat(str(datetime.fromisoformat(str(manager.dialog_data.get("newdate", ""))+' '+message.text).isoformat())).replace(tzinfo=pytz.timezone('Europe/Moscow')))
+        cal.add_component(event)
+        text_file = BufferedInputFile(cal.to_ical(), filename=f"{databases.get_document(dbid, cid, str(did))["name"]}.ics")
+        await bot_user(SendMessage(chat_id=grokerid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось время проведения!\n Новое время: {manager.dialog_data.get("newdate", "")} {message.text}\n Лови новое оповещение🐦'))
+        await bot_user(SendDocument(chat_id=grokerid,document=text_file))
         #await bot.send_message(chat_id=grokerid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось время проведения!\n Новое время: {manager.dialog_data.get("newdate", "")} {message.text}\n Для добавления нового оповещения нажми кнопку записаться ещё раз')
     manager.dialog_data["newtime"] = message.text
     await manager.switch_to(event_editing.ch_editing)
@@ -205,7 +239,7 @@ async def chplace(message: Message, message_input: MessageInput,
     print(did)
     bookings = databases.get_document(dbid, cid, str(did))['grokers']
     result = databases.update_document(dbid, cid, did, {'p_longitude':message.location.longitude, 'p_latitude':message.location.latitude})
-    for grokerid in bookings:
+    for grokerid in set(bookings):
         #await notifyChanges(chatid=grokerid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось место проведения!\n Новое место: {message.location.longitude} {message.location.latitude}\n')
         await Bot(token=os.getenv("USER_TOKEN")).send_message(chat_id=grokerid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось место проведения!\n Новое место: {message.location.longitude} {message.location.latitude}\n')
     await manager.switch_to(event_editing.ch_editing)
@@ -270,8 +304,9 @@ eedit_place = Window(
 )
 dialog_edit = Dialog(event_choose, event_edit, eedit_date, eedit_time, eedit_place)
 #Конец редактирования мероприятия
-API_TOKEN = open(".key", "r").readline().rstrip
+API_TOKEN = os.getenv("CREATOR_TOKEN")
 bot = Bot(token=API_TOKEN)
+bot_user = Bot(token=os.getenv("USER_TOKEN"))
 dp = Dispatcher(storage=MemoryStorage())
 dp.include_router(dialog_create)
 dp.include_router(dialog_edit)
