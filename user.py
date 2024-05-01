@@ -13,7 +13,7 @@ from aiogram.types import CallbackQuery
 from aiogram.filters.command import Command
 from aiogram_dialog import DialogManager
 from aiogram_dialog.widgets.kbd import Calendar
-from aiogram.filters import Text
+from aiogram import F
 from appwrite.client import Client
 from appwrite.services.databases import Databases
 from appwrite.id import ID
@@ -28,6 +28,8 @@ from aiogram.types import BufferedInputFile
 from icalendar import Calendar as Callend
 from icalendar import Event
 import pytz
+async def notifyChanges(chatid, text):
+    bot.send_message(chat_id=chatid, text=text)
 async def compute_Delta(degrees):
     return math.pi / 180.0 * 6371210 * math.cos(deg2rad(degrees))
 
@@ -71,7 +73,7 @@ async def chradius_handler(message: Message, message_input: MessageInput,
     #did = databases.list_documents(dbid, ucid, [Query.equal('userid', userid)])['documents']['$id']
     #manager.dialog_data["did"] = did
 
-    response = databases.update_document(dbid, ucid, did, {'cordirange':[longitude-aroundLon/2, longitude+aroundLon/2, latitude-aroundLat/2, latitude+aroundLat/2]})
+    response = databases.update_document(dbid, ucid, did, {'coordirange':[longitude-aroundLon/2, longitude+aroundLon/2, latitude-aroundLat/2, latitude+aroundLat/2]})
     await manager.switch_to(setting.ch_mpage)
 chplace = Window(
     Const('Пришли местоположение'),
@@ -93,8 +95,7 @@ mainwindow = Window(
 setting_dialog = Dialog(mainwindow, chplace, chradius)
 async def event_getter(dialog_manager: DialogManager,**_kwargs):
     userid = dialog_manager.event.from_user.id
-    cid = '644c2f1d2011d5d35680'
-    kritery = databases.list_documents(dbid, ucid, [Query.equal('userid', userid)])['documents'][0]['cordirange']
+    kritery = databases.list_documents(dbid, ucid, [Query.equal('userid', userid)])['documents'][0]['coordirange']
     a = databases.list_documents(dbid, cid, [Query.less_than('p_longitude', kritery[1]), Query.less_than('p_latitude', kritery[3]), Query.greater_than('p_longitude', kritery[0]), Query.greater_than('p_latitude', kritery[2]), Query.equal('accepted', True)])['documents']
     names = []
     ids = []
@@ -137,16 +138,14 @@ async def get_data(dialog_manager: DialogManager,**_kwargs):
         'name': doc['name'],
         'datetime': doc['datetime'],
         'place': [doc['p_longitude'], doc['p_latitude']],
-        'paid': doc['paid'],
-        'paylink': doc['paylink'],
-        'age_limit': doc['age_limit']
     }
 async def add_booking(c: CallbackQuery, button: Button, manager: DialogManager):
     did = manager.dialog_data.get("did", "")
     document = databases.get_document(dbid, cid, did)
-    doc = databases.get_document(dbid, cid, did)['bookings']
-    doc.append(manager.event.from_user.chat_id)
-    response = databases.update_document(dbid, cid, did, {'bookings':doc})
+    doc = databases.get_document(dbid, cid, did)['grokers']
+    #print(manager.event.from_user.id)
+    doc.append(databases.list_documents(dbid, ucid, queries=[Query.equal('userid', manager.event.from_user.id)])['documents'][0]['chatid'])
+    response = databases.update_document(dbid, cid, did, {'grokers':doc})
     cal = Callend()
     cal.add('dtstart', datetime.fromisoformat(document['datetime']))
     cal.add('prodid', '-//Kuda<->Tula notifier//')
@@ -157,10 +156,10 @@ async def add_booking(c: CallbackQuery, button: Button, manager: DialogManager):
     event.add('dtend', datetime.fromisoformat(document['datetime']).replace(tzinfo=pytz.timezone('Europe/Moscow')))
     event.add('dtstamp', datetime.fromisoformat(document['datetime']).replace(tzinfo=pytz.timezone('Europe/Moscow')))
     cal.add_component(event)
-    text_file = BufferedInputFile(cal.to_ical(), filename="file.ics")
+    text_file = BufferedInputFile(cal.to_ical(), filename="goгрокать_без_опозданий.ics")
     await c.message.answer_document(text_file)
 event_window = Window(
-    Format('Ты выбрал мероприятие:{name}\nДата:{datetime}\nМесто:{place}\nПлатное:{paid}\nСсылка на оплату:{paylink}\nОграничения по возрасту:{age_limit}\nМожешь записаться, тогда бот пришлёт тебе файл, который ты сможешь добавить в свой календарь'),
+    Format('Ты выбрал мероприятие:{name}\nДата:{datetime}\nМесто:{place}\n'),
     Button(Const('Записаться'), on_click=add_booking, id='booking'),
     state=eventlist.ch_event,
     getter=get_data
@@ -168,7 +167,7 @@ event_window = Window(
 e_dialog = Dialog(event_choose, event_window)
 #https://en.wikipedia.org/wiki/Longitude#Length_of_a_degree_of_longitude
 
-client = (Client().set_endpoint('https://localhost/v1').set_project('644bf71b1fd33de165c1').set_key('fedd80794ac0c6c7ee557b6d8d272049ac69a7c4e530251411d5df53f4d97370ebf03340077072741e879f82b4a27d0a9e1b4acb8cf214d5e221a28ca4aefaaa163d430a859b75c759aae07076d3a5075b9b1d5f2f1328bf90578cbd3ac5f31948f1746922f034b52532175e3315cb94c16c8580b9213a26c57ccbc814eacb15'))
+client = (Client().set_endpoint('http://localhost/v1').set_project('661d778d002d0d91cacd').set_key('27b19c1cfff08c7f232ef7776f38e5d89c8647a88ef7a77da41952f8babb3f62b20d98ebeefb22e07db7d90b09fcb2b87ee72803065ff6afe7f0e0be687b14f62308538aa720e3de9ad6432a5365efaea33f05cafde1c072fe901c050c2b95a2e6807eb6c2189f6ad05ffbdb49671f97ae3190023ff4a94e02f084f585f322c3'))
 API_TOKEN = '1026624360:AAGAI3gKXOhwwC3gEoVdm9tIBFCVRPekJek'
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
@@ -176,8 +175,8 @@ dp.include_router(setting_dialog)
 dp.include_router(e_dialog)
 setup_dialogs(dp)
 databases = Databases(client)
-dbid, ucid = '644c2f1074ca81e7f813', '644cf9f1d76be85bbdd4'
-cid = '644c2f1d2011d5d35680'
+dbid, ucid = '661d77b300189e3cc563', '661d7c7c0019a70faf6e'
+cid = '661d77d5000350aebace'
 #Начало создания мероприятия
 @dp.message(Command('start'))
 async def send_welcome(message: types.Message):
@@ -197,15 +196,15 @@ async def send_welcome(message: types.Message):
                 document_id=ID.unique(),
                 data={
                     'userid':message.from_user.id,
-                    'chatid':message.chat_id
+                    'chatid':message.chat.id
                 }
         )
     await message.reply("Привет!\nТы открыл официального бота Тула Куда пойти!\nЗдесь ты найдёшь интересные мероприятия города\n", reply_markup=builder.as_markup())
 
-@dp.callback_query(Text("settings"))
+@dp.callback_query(F.data == "settings")
 async def cc(callback: types.CallbackQuery,  dialog_manager: DialogManager):
     await  dialog_manager.start(setting.ch_place, mode=StartMode.RESET_STACK)
-@dp.callback_query(Text("event_list"))
+@dp.callback_query(F.data == "event_list")
 async def el(callback: types.CallbackQuery,  dialog_manager: DialogManager):
     await  dialog_manager.start(eventlist.ch_elist, mode=StartMode.RESET_STACK)
 if __name__ == '__main__':

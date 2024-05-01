@@ -13,7 +13,8 @@ from aiogram.types import CallbackQuery
 from aiogram.filters.command import Command
 from aiogram_dialog import DialogManager
 from aiogram_dialog.widgets.kbd import Calendar
-from aiogram.filters import Text
+from aiogram import F
+#from aiogram.filters import Text
 from appwrite.client import Client
 from appwrite.services.databases import Databases
 from appwrite.id import ID
@@ -21,10 +22,11 @@ from aiogram_dialog.widgets.kbd import Button, ScrollingGroup
 from appwrite.query import Query
 from operator import itemgetter
 from typing import Any
+from user import notifyChanges
 #Подключаемся к бдшке
-client = (Client().set_endpoint('https://localhost/v1').set_project('644bf71b1fd33de165c1').set_key('fedd80794ac0c6c7ee557b6d8d272049ac69a7c4e530251411d5df53f4d97370ebf03340077072741e879f82b4a27d0a9e1b4acb8cf214d5e221a28ca4aefaaa163d430a859b75c759aae07076d3a5075b9b1d5f2f1328bf90578cbd3ac5f31948f1746922f034b52532175e3315cb94c16c8580b9213a26c57ccbc814eacb15'))
+client = (Client().set_endpoint('http://localhost/v1').set_project('661d778d002d0d91cacd').set_key('27b19c1cfff08c7f232ef7776f38e5d89c8647a88ef7a77da41952f8babb3f62b20d98ebeefb22e07db7d90b09fcb2b87ee72803065ff6afe7f0e0be687b14f62308538aa720e3de9ad6432a5365efaea33f05cafde1c072fe901c050c2b95a2e6807eb6c2189f6ad05ffbdb49671f97ae3190023ff4a94e02f084f585f322c3'))
 databases = Databases(client)
-dbid, cid = '644c2f1074ca81e7f813', '644c2f1d2011d5d35680'
+dbid, cid = '661d77b300189e3cc563', '661d77d5000350aebace'
 #Начало создания мероприятия
 class event_creation(StatesGroup):
     ch_event_name = State()
@@ -50,9 +52,6 @@ async def get_data(dialog_manager: DialogManager, **kwargs):
         "place": dialog_manager.dialog_data.get("place", ""),
         "date": dialog_manager.dialog_data.get("date", ""),
         "time": dialog_manager.dialog_data.get("time", ""),
-        "paid": pay,
-        "paylink":paylink,
-        'age_limit':dialog_manager.dialog_data.get("age_limit", "")
     }
     
 async def event_name_handler(message: Message, message_input: MessageInput,
@@ -78,14 +77,6 @@ async def time_handler(message: Message, message_input: MessageInput,
         return
     manager.dialog_data["time"] = message.text
     await manager.next()
-async def ev_is_paid(callback: CallbackQuery, button: Button,
-                     manager: DialogManager):
-    manager.dialog_data["paid"] = True
-    await manager.next()
-async def ev_isnt_paid(callback: CallbackQuery, button: Button,
-                     manager: DialogManager):
-    manager.dialog_data["paid"] = False
-    await manager.switch_to(event_creation.ch_age_limit)
 async def on_date_selected(c: CallbackQuery, widget, manager: DialogManager, selected_date: date):
     if manager.is_preview():
         await manager.next()
@@ -97,56 +88,22 @@ async def on_finish(callback: CallbackQuery, button: Button,
     if manager.is_preview():
         await manager.done()
         return
-    if manager.dialog_data.get("paylink", "") == '':
-        response = databases.create_document(
-            '644c2f1074ca81e7f813',
-            '644c2f1d2011d5d35680',
-            document_id=ID.unique(),
-            data={
-                'userid':manager.event.from_user.id,
-                'name':manager.dialog_data.get("event_name", ""),
-                'p_longitude': manager.dialog_data.get("place", "")[0],
-                'p_latitude': manager.dialog_data.get('place', '')[1],
-                'datetime': str(datetime.fromisoformat(str(manager.dialog_data.get("date", ""))+' '+str(manager.dialog_data.get("time", ""))).isoformat()),
-                'paid': manager.dialog_data.get("paid", ""),
-                'age_limit':manager.dialog_data.get("age_limit", "")
-            }
-        )
-        print(response)
-    else:
-
-        response = databases.create_document(
-            '644c2f1074ca81e7f813',
-            '644c2f1d2011d5d35680',
-            document_id=ID.unique(),
-            data={
-                'userid':manager.event.from_user.id,
-                'name':manager.dialog_data.get("event_name", ""),
-                'p_longitude': manager.dialog_data.get("place", "")[0],
-                'p_latitude': manager.dialog_data.get('place', '')[1],
-                'datetime': str(datetime.fromisoformat(str(manager.dialog_data.get("date", ""))+' '+str(manager.dialog_data.get("time", ""))).isoformat()),
-                'paid': manager.dialog_data.get("paid", ""),
-                'paylink':manager.dialog_data.get("paylink", ""),
-                'age_limit':manager.dialog_data.get("age_limit", "")
-            }
-        )
-        print(response)
+    print(manager.dialog_data.get("place", ""))
+    response = databases.create_document(
+        dbid,
+        cid,
+        document_id=ID.unique(),
+        data={
+            'userid':manager.event.from_user.id,
+            'name':manager.dialog_data.get("event_name", ""),
+            'p_longitude': manager.dialog_data.get("place", "")[0],
+            'p_latitude': manager.dialog_data.get('place', '')[1],
+            'datetime': str(datetime.fromisoformat(str(manager.dialog_data.get("date", ""))+' '+str(manager.dialog_data.get("time", ""))).isoformat()),
+        }
+    )
+    print(response)
     await callback.message.answer("Готово! Для добавления нового мероприятия отправь /start")
     await manager.done()
-async def paylink_handler(message: Message, message_input: MessageInput,
-                             manager: DialogManager):
-    if manager.is_preview():
-        await manager.next()
-        return
-    manager.dialog_data["paylink"] = message.text
-    await manager.next()
-async def age_limit_handler(message: Message, message_input: MessageInput,
-                             manager: DialogManager):
-    if manager.is_preview():
-        await manager.next()
-        return
-    manager.dialog_data["age_limit"] = message.text
-    await manager.next()
 event_creation_w = Window(
     Const('Вау, в нашем городе новое мероприятие! Для начала, введи название мероприятия'),
     MessageInput(event_name_handler, content_types=[ContentType.TEXT]),
@@ -167,34 +124,8 @@ time_selection = Window(
     MessageInput(time_handler),
     state=event_creation.ch_time
 )
-is_paid = Window(
-    Const('Мероприятие будет платным?'), 
-    Row(
-        Button(
-            Const('Да'),
-            id='true',
-            on_click=ev_is_paid
-        ),
-        Button(
-            Const('Нет'),
-            id='false',
-            on_click=ev_isnt_paid
-        )
-    ),
-    state=event_creation.ch_is_paid
-)
-paylink = Window(
-    Const('Окей! Теперь отправь ссылку на оплату. Например, https://example.com'),
-    MessageInput(paylink_handler),
-    state=event_creation.ch_paylink
-)
-age_limit = Window(
-    Const('Твоё мероприятие может подходить не всем, уточни, есть ли ограничения по возрасту?'),
-    MessageInput(age_limit_handler),
-    state=event_creation.ch_age_limit
-)
 allin = Window(
-    Format("Готово! Проверим информацию:\nМерприятие: {event_name}\nДата: {date}\nВремя: {time}\nПлатное: {paid}\nСсылка на оплату: {paylink}\nОграничения по возрасту: {age_limit}\nКоординаты: {place}"),
+    Format("Готово! Проверим информацию:\nМерприятие: {event_name}\nДата: {date}\nВремя: {time}\n Координаты: {place}"),
     Row(
             Back(),
             SwitchTo(Const("Заполнить сначала"), id="restart", state=event_creation.ch_event_name),
@@ -203,7 +134,7 @@ allin = Window(
     state=event_creation.ch_finish,
     getter=get_data,)
 
-dialog_create = Dialog(event_creation_w, place_selection, date_selection,time_selection, is_paid, paylink, age_limit, allin)
+dialog_create = Dialog(event_creation_w, place_selection, date_selection,time_selection, allin)
 
 #Конец создания мероприятия
 #Начало редактирования мероприятия
@@ -221,7 +152,7 @@ async def event_edit_ch(c: CallbackQuery, button: Button, manager: DialogManager
     await manager.next()
 async def tbc_getter(dialog_manager: DialogManager,**_kwargs):
     userid = dialog_manager.event.from_user.id
-    a = databases.list_documents(dbid, cid, [Query.equal('userid', userid)])['documents']
+    a = databases.list_documents(dbid, cid, queries=[Query.equal('userid', userid)])['documents']
     names = []
     ids = []
     for el in a:
@@ -251,12 +182,12 @@ async def chtime(message: Message, message_input: MessageInput,
         await manager.next()
         return
     did = manager.dialog_data.get('did', '')
-    cid = '644c2f1d2011d5d35680'
     result = databases.update_document(dbid, cid, did, {'datetime':str(datetime.fromisoformat(str(manager.dialog_data.get("newdate", ""))+' '+message.text).isoformat())})
     print(did)
-    bookings = databases.get_document(dbid, cid, str(did))['bookings']
-    for userid in bookings:
-        await bot.send_message(chat_id=userid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось время проведения!\n Новое время: {manager.dialog_data.get("newdate", "")} {message.text}\n Для добавления нового оповещения нажми кнопку записаться ещё раз')
+    bookings = databases.get_document(dbid, cid, str(did))['grokers']
+    for grokerid in bookings:
+        await Bot(token="1026624360:AAGAI3gKXOhwwC3gEoVdm9tIBFCVRPekJek").send_message(chat_id=grokerid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось время проведения!\n Новое время: {manager.dialog_data.get("newdate", "")} {message.text}\n Для добавления нового оповещения нажми кнопку записаться ещё раз')
+        #await bot.send_message(chat_id=grokerid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось время проведения!\n Новое время: {manager.dialog_data.get("newdate", "")} {message.text}\n Для добавления нового оповещения нажми кнопку записаться ещё раз')
     manager.dialog_data["newtime"] = message.text
     await manager.switch_to(event_editing.ch_editing)
 async def place_ch(c: CallbackQuery, button: Button, manager: DialogManager):
@@ -268,11 +199,11 @@ async def chplace(message: Message, message_input: MessageInput,
         return
     did = manager.dialog_data.get('did', '')
     print(did)
-    cid = '644c2f1d2011d5d35680'
-    bookings = databases.get_document(dbid, cid, str(did))['bookings']
+    bookings = databases.get_document(dbid, cid, str(did))['grokers']
     result = databases.update_document(dbid, cid, did, {'p_longitude':message.location.longitude, 'p_latitude':message.location.latitude})
-    for userid in bookings:
-        await bot.send_message(chat_id=userid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось место проведения!\n Новое место: {message.location.longitude} {message.location.latitude}\n')
+    for grokerid in bookings:
+        #await notifyChanges(chatid=grokerid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось место проведения!\n Новое место: {message.location.longitude} {message.location.latitude}\n')
+        await Bot(token="1026624360:AAGAI3gKXOhwwC3gEoVdm9tIBFCVRPekJek").send_message(chat_id=grokerid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось место проведения!\n Новое место: {message.location.longitude} {message.location.latitude}\n')
     await manager.switch_to(event_editing.ch_editing)
 async def deledvent(c: CallbackQuery, button: Button, manager: DialogManager):
     did = manager.dialog_data.get('did', '')
@@ -284,10 +215,7 @@ async def get_data(dialog_manager: DialogManager,**_kwargs):
         'name': doc['name'],
         'datetime': doc['datetime'],
         'place': [doc['p_longitude'], doc['p_latitude']],
-        'paid': doc['paid'],
-        'paylink': doc['paylink'],
-        'age_limit': doc['age_limit'],
-        'accepted':doc['accepted']
+        'accepted': doc['accepted']
     }
 
 async def on_fruit_selected(callback: CallbackQuery, widget: Any,
@@ -313,7 +241,7 @@ event_choose = Window(
     state=event_editing.ch_event_choose
 )
 event_edit = Window(
-    Format('Ты выбрал мероприятие:{name}\nДата:{datetime}\nМесто:{place}\nПлатное:{paid}\nСсылка на оплату:{paylink}\nОграничения по возрасту:{age_limit}\nОдобрено модератором:{accepted}\nЧто ты хочешь изменить в карточке мероприятия?'),
+    Format('Ты выбрал мероприятие:{name}\nДата:{datetime}\nМесто:{place}\nОдобрено модератором:{accepted}\nЧто ты хочешь изменить в карточке мероприятия?'),
     Row(
         Button(Const('Дату и время'), id='chdatetime', on_click=datetime_ch),
         Button(Const('Место'), id='chplace', on_click=place_ch),
@@ -358,10 +286,10 @@ async def send_welcome(message: types.Message):
     ))
     await message.reply("Привет!\nТы открыл официального бота Тула Куда пойти для организаторов!\nЗдесь ты можешь создавать мероприятие и отправлять его на модерацию\n", reply_markup=builder.as_markup())
 
-@dp.callback_query(Text("create_event"))
+@dp.callback_query(F.data == "create_event")
 async def cc(callback: types.CallbackQuery, dialog_manager: DialogManager):
      await dialog_manager.start(event_creation.ch_event_name, mode=StartMode.RESET_STACK)
-@dp.callback_query(Text("edit_event"))
+@dp.callback_query(F.data == "edit_event")
 async def ec(callback: types.CallbackQuery, dialog_manager: DialogManager):
      await dialog_manager.start(event_editing.ch_event_choose, mode=StartMode.RESET_STACK)
 if __name__ == '__main__':
