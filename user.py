@@ -28,6 +28,9 @@ from aiogram.types import BufferedInputFile
 from icalendar import Calendar as Callend
 from icalendar import Event
 import pytz
+import os
+from dotenv import load_dotenv
+load_dotenv()
 async def notifyChanges(chatid, text):
     bot.send_message(chat_id=chatid, text=text)
 async def compute_Delta(degrees):
@@ -168,7 +171,7 @@ e_dialog = Dialog(event_choose, event_window)
 #https://en.wikipedia.org/wiki/Longitude#Length_of_a_degree_of_longitude
 
 client = (Client().set_endpoint('http://localhost/v1').set_project('661d778d002d0d91cacd').set_key('27b19c1cfff08c7f232ef7776f38e5d89c8647a88ef7a77da41952f8babb3f62b20d98ebeefb22e07db7d90b09fcb2b87ee72803065ff6afe7f0e0be687b14f62308538aa720e3de9ad6432a5365efaea33f05cafde1c072fe901c050c2b95a2e6807eb6c2189f6ad05ffbdb49671f97ae3190023ff4a94e02f084f585f322c3'))
-API_TOKEN = '1026624360:AAGAI3gKXOhwwC3gEoVdm9tIBFCVRPekJek'
+API_TOKEN = os.getenv('USER_TOKEN')
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 dp.include_router(setting_dialog)

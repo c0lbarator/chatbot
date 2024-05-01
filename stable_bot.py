@@ -23,6 +23,10 @@ from appwrite.query import Query
 from operator import itemgetter
 from typing import Any
 from user import notifyChanges
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 #Подключаемся к бдшке
 client = (Client().set_endpoint('http://localhost/v1').set_project('661d778d002d0d91cacd').set_key('27b19c1cfff08c7f232ef7776f38e5d89c8647a88ef7a77da41952f8babb3f62b20d98ebeefb22e07db7d90b09fcb2b87ee72803065ff6afe7f0e0be687b14f62308538aa720e3de9ad6432a5365efaea33f05cafde1c072fe901c050c2b95a2e6807eb6c2189f6ad05ffbdb49671f97ae3190023ff4a94e02f084f585f322c3'))
 databases = Databases(client)
@@ -186,7 +190,7 @@ async def chtime(message: Message, message_input: MessageInput,
     print(did)
     bookings = databases.get_document(dbid, cid, str(did))['grokers']
     for grokerid in bookings:
-        await Bot(token="1026624360:AAGAI3gKXOhwwC3gEoVdm9tIBFCVRPekJek").send_message(chat_id=grokerid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось время проведения!\n Новое время: {manager.dialog_data.get("newdate", "")} {message.text}\n Для добавления нового оповещения нажми кнопку записаться ещё раз')
+        await Bot(token=os.getenv("USER_TOKEN")).send_message(chat_id=grokerid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось время проведения!\n Новое время: {manager.dialog_data.get("newdate", "")} {message.text}\n Для добавления нового оповещения нажми кнопку записаться ещё раз')
         #await bot.send_message(chat_id=grokerid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось время проведения!\n Новое время: {manager.dialog_data.get("newdate", "")} {message.text}\n Для добавления нового оповещения нажми кнопку записаться ещё раз')
     manager.dialog_data["newtime"] = message.text
     await manager.switch_to(event_editing.ch_editing)
@@ -203,7 +207,7 @@ async def chplace(message: Message, message_input: MessageInput,
     result = databases.update_document(dbid, cid, did, {'p_longitude':message.location.longitude, 'p_latitude':message.location.latitude})
     for grokerid in bookings:
         #await notifyChanges(chatid=grokerid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось место проведения!\n Новое место: {message.location.longitude} {message.location.latitude}\n')
-        await Bot(token="1026624360:AAGAI3gKXOhwwC3gEoVdm9tIBFCVRPekJek").send_message(chat_id=grokerid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось место проведения!\n Новое место: {message.location.longitude} {message.location.latitude}\n')
+        await Bot(token=os.getenv("USER_TOKEN")).send_message(chat_id=grokerid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось место проведения!\n Новое место: {message.location.longitude} {message.location.latitude}\n')
     await manager.switch_to(event_editing.ch_editing)
 async def deledvent(c: CallbackQuery, button: Button, manager: DialogManager):
     did = manager.dialog_data.get('did', '')
