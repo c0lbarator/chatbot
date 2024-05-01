@@ -266,7 +266,7 @@ eedit_place = Window(
 )
 dialog_edit = Dialog(event_choose, event_edit, eedit_date, eedit_time, eedit_place)
 #Конец редактирования мероприятия
-API_TOKEN = '1037774621:AAH41GlT7PvLff40QF1f6CzY0_IjY7bot6M'
+API_TOKEN = open(".key", "r").readline().rstrip
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 dp.include_router(dialog_create)

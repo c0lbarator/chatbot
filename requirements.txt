@@ -1,0 +1,5 @@
+appwrite
+aiogram
+aiogram_dialog
+icalendar
+load_dotenv
