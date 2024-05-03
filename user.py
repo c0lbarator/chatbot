@@ -3,14 +3,14 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery, ContentType
 from aiogram_dialog import Window, Dialog, DialogManager, StartMode, setup_dialogs
-from aiogram_dialog.widgets.kbd import Button, Row, Back, SwitchTo, Select
+from aiogram_dialog.widgets.kbd import Button, Row, Back, SwitchTo, Select, Url
 from aiogram_dialog.widgets.text import Const, Format
 from aiogram_dialog.widgets.input import MessageInput
 from datetime import date
 from datetime import datetime
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import CallbackQuery
-from aiogram.filters.command import Command
+from aiogram.filters.command import Command, CommandObject, CommandStart
 from aiogram_dialog import DialogManager
 from aiogram_dialog.widgets.kbd import Calendar
 from aiogram import F
@@ -136,16 +136,22 @@ event_choose = Window(
 
 async def get_data(dialog_manager: DialogManager,**_kwargs):
     did = dialog_manager.dialog_data.get("did", "")
+    if len(did) == 0:
+        did = dialog_manager.start_data.get("did", "")
     doc = databases.get_document(dbid, cid, did)
+    #print(did)
     return {
         'name': doc['name'],
         'datetime': doc['datetime'],
         'place': [doc['p_latitude'],doc['p_longitude']],
         'venue': doc['venue'],
-        'description': doc['description']
+        'description': doc['description'],
+        'did':did
     }
 async def add_booking(c: CallbackQuery, button: Button, manager: DialogManager):
     did = manager.dialog_data.get("did", "")
+    if len(did) == 0:
+        did = manager.start_data.get("did", "")
     document = databases.get_document(dbid, cid, did)
     doc = databases.get_document(dbid, cid, did)['grokers']
     #print(manager.event.from_user.id)
@@ -174,6 +180,10 @@ txt = Jinja("""
 event_window = Window(
     txt,
     Button(Const('Записаться'), on_click=add_booking, id='booking'),
+    Url(
+        Const("Поделиться"),
+        Format("https://t.me/share/url?url=https://t.me/step_vanish_bot?start=event_{did}&text=Тут проводят классное мероприятие, присоединяйся!"),
+    ),
     state=eventlist.ch_event,
     getter=get_data,
     parse_mode="HTML"
@@ -191,6 +201,11 @@ setup_dialogs(dp)
 databases = Databases(client)
 dbid, ucid = '661d77b300189e3cc563', '661d7c7c0019a70faf6e'
 cid = '661d77d5000350aebace'
+@dp.message(CommandStart(deep_link=True))
+async def event_sharing(message:Message, command: CommandObject, dialog_manager: DialogManager):
+    evid = command.args.split("_")[1]
+    print(evid)
+    await dialog_manager.start(eventlist.ch_event, data={"did":evid})
 #Начало создания мероприятия
 @dp.message(Command('start'))
 async def send_welcome(message: types.Message):
@@ -213,7 +228,8 @@ async def send_welcome(message: types.Message):
                     'chatid':message.chat.id
                 }
         )
-    await message.reply("Привет!\nТы открыл официального бота Тула Куда пойти!\nЗдесь ты найдёшь интересные мероприятия города\n", reply_markup=builder.as_markup())
+    await message.reply("""Привет!\nТы открыл официального бота Тула Куда пойти!\nЗдесь ты найдёшь интересные мероприятия города\n Если ты тут в первый раз,
+    перед использованием настрой бота под себя""", reply_markup=builder.as_markup())
 
 @dp.callback_query(F.data == "settings")
 async def cc(callback: types.CallbackQuery,  dialog_manager: DialogManager):

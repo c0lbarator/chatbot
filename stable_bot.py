@@ -241,11 +241,22 @@ async def chplace(message: Message, message_input: MessageInput,
     result = databases.update_document(dbid, cid, did, {'p_longitude':message.location.longitude, 'p_latitude':message.location.latitude})
     for grokerid in set(bookings):
         #await notifyChanges(chatid=grokerid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось место проведения!\n Новое место: {message.location.longitude} {message.location.latitude}\n')
-        await Bot(token=os.getenv("USER_TOKEN")).send_message(chat_id=grokerid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось место проведения!\n Новое место: {message.location.longitude} {message.location.latitude}\n')
+        await bot_user(SendMessage(chat_id=grokerid, text=f'В мероприятии {databases.get_document(dbid, cid, str(did))["name"]} изменилось место проведения!\n Новое место: {message.location.longitude} {message.location.latitude}\n'))
     await manager.switch_to(event_editing.ch_editing)
 async def deledvent(c: CallbackQuery, button: Button, manager: DialogManager):
     did = manager.dialog_data.get('did', '')
     result = databases.delete_document(dbid, cid, did)
+async def grokerslist(c: CallbackQuery, button: Button, manager: DialogManager):
+    did = manager.dialog_data.get('did', '')
+    event = databases.get_document(dbid, cid, str(did))
+    bookings = event['grokers']
+    grlist = set(bookings)
+    text = "Список участников:\n"
+    for i, el in enumerate(grlist):
+        chat = await bot.get_chat(el)
+        s = f"{i+1}. {chat.first_name} {chat.last_name} @{chat.username}\n"
+        text+=s
+    await bot(SendMessage(chat_id=event['userid'], text=text))
 async def get_data(dialog_manager: DialogManager,**_kwargs):
     did = dialog_manager.dialog_data.get("did", "")
     doc = databases.get_document(dbid, cid, did)
@@ -253,7 +264,8 @@ async def get_data(dialog_manager: DialogManager,**_kwargs):
         'name': doc['name'],
         'datetime': doc['datetime'],
         'place': [doc['p_longitude'], doc['p_latitude']],
-        'accepted': doc['accepted']
+        'accepted': doc['accepted'],
+        'venue': doc['venue']
     }
 
 async def on_fruit_selected(callback: CallbackQuery, widget: Any,
@@ -279,10 +291,11 @@ event_choose = Window(
     state=event_editing.ch_event_choose
 )
 event_edit = Window(
-    Format('Ты выбрал мероприятие:{name}\nДата:{datetime}\nМесто:{place}\nОдобрено модератором:{accepted}\nЧто ты хочешь изменить в карточке мероприятия?'),
+    Format('Ты выбрал мероприятие:{name}\nДата:{datetime}\nМесто:{venue}\nОдобрено модератором:{accepted}\n'),
     Row(
-        Button(Const('Дату и время'), id='chdatetime', on_click=datetime_ch),
+        Button(Const('Дата и время'), id='chdatetime', on_click=datetime_ch),
         Button(Const('Место'), id='chplace', on_click=place_ch),
+        Button(Const('Участники'), id='grokers', on_click=grokerslist),
         Button(Const('Удалить мероприятие'), id='deledvent', on_click=deledvent))
     ,
     state=event_editing.ch_editing,
@@ -320,7 +333,7 @@ async def send_welcome(message: types.Message):
         callback_data="create_event", )
     )
     builder.add(types.InlineKeyboardButton(
-        text='Редактировать мероприятие',
+        text='Пульт управления',
         callback_data="edit_event"
     ))
     await message.reply("Привет!\nТы открыл официального бота Тула Куда пойти для организаторов!\nЗдесь ты можешь создавать мероприятие и отправлять его на модерацию\n", reply_markup=builder.as_markup())
